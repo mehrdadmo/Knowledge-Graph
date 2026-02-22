@@ -1,0 +1,1 @@
+from .ocr_core.tesseract32_ocr_core_service import Tesseract32OCRCoreService as OCRCore
