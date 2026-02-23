@@ -16,11 +16,11 @@ def create_demo_data():
         import psycopg2
         from psycopg2.extras import RealDictCursor
         
-        # Connect to test database
+        # Connect to database
         conn = psycopg2.connect(
             host='localhost',
-            port=5433,
-            database='test',
+            port=5432,
+            database='logistics_kg',
             user='postgres',
             password='password'
         )

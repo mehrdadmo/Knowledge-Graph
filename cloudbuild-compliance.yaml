@@ -1,0 +1,13 @@
+# Cloud Build configuration for Compliance Engine
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'backend/Dockerfile.compliance.cloud', '-t', 'gcr.io/$PROJECT_ID/kg-compliance:$COMMIT_SHA', '.']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/kg-compliance:$COMMIT_SHA']
+
+substitutions:
+  COMMIT_SHA: '$COMMIT_SHA'
+
+images:
+  - 'gcr.io/$PROJECT_ID/kg-compliance:$COMMIT_SHA'

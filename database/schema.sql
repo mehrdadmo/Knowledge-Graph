@@ -56,8 +56,7 @@ CREATE INDEX idx_document_fields_hitl_finished_at ON document_fields(hitl_finish
 CREATE INDEX idx_field_definitions_name ON field_definitions(name);
 
 -- CDC (Change Data Capture) Setup
--- Enable required extensions
-CREATE EXTENSION IF NOT EXISTS pg_notify;
+-- pg_notify is built-in function, no extension needed
 
 -- Function to trigger notification when hitl_finished_at is updated
 CREATE OR REPLACE FUNCTION notify_hitl_finished()

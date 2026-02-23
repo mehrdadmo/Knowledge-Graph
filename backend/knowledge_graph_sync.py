@@ -147,7 +147,15 @@ class KnowledgeGraphSync:
                     # For products, we need to handle the relationship differently
                     # to track product-HS code relationships
                     product_hs_codes[best_value] = None
+                elif field_name in ['OriginPort', 'DestinationPort']:
+                    # Location relationships
+                    mapping['create_relationship'](
+                        document_id=document_id,
+                        location_name=best_value,
+                        relationship_type=mapping['relationship']
+                    )
                 else:
+                    # Entity relationships (ShipperName, ConsigneeName, etc.)
                     mapping['create_relationship'](
                         document_id=document_id,
                         entity_name=best_value,

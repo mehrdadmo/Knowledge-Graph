@@ -30,7 +30,19 @@ class Neo4jManager:
         try:
             with self.get_session() as session:
                 result = session.run(query, params or {})
-                return [record.data() for record in result]
+                records = []
+                for record in result:
+                    data = record.data()
+                    # Convert Neo4j DateTime objects to strings for serialization
+                    for key, value in data.items():
+                        if hasattr(value, 'iso_format'):
+                            data[key] = value.iso_format()
+                        elif isinstance(value, dict):
+                            for sub_key, sub_value in value.items():
+                                if hasattr(sub_value, 'iso_format'):
+                                    value[sub_key] = sub_value.iso_format()
+                    records.append(data)
+                return records
         except Exception as e:
             logger.error(f"Neo4j query error: {e}")
             raise

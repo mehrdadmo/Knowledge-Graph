@@ -101,7 +101,7 @@ services:
       NEO4J_PASSWORD: password
       LOG_LEVEL: INFO
     ports:
-      - "8000:8000"  # FastAPI HTTP
+      - "8001:8000"  # FastAPI HTTP
     volumes:
       - ./backend:/app
       - kg_api_logs:/app/logs

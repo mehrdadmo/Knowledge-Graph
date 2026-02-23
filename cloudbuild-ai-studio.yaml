@@ -1,0 +1,13 @@
+# Cloud Build configuration for AI Studio API
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'backend/Dockerfile.ai-studio', '-t', 'gcr.io/$PROJECT_ID/kg-ai-studio:$COMMIT_SHA', '.']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/kg-ai-studio:$COMMIT_SHA']
+
+substitutions:
+  COMMIT_SHA: '$COMMIT_SHA'
+
+images:
+  - 'gcr.io/$PROJECT_ID/kg-ai-studio:$COMMIT_SHA'
