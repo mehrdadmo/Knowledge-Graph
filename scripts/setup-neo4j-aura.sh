@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Neo4j AuraDB Setup Guide
+# This needs to be done manually at https://console.neo4j.io/
+
+echo "=== Neo4j AuraDB Setup Guide ==="
+echo ""
+echo "1. Go to https://console.neo4j.io/"
+echo "2. Sign up/login to Neo4j Aura"
+echo "3. Create a new AuraDB instance:"
+echo "   - Choose AuraDB Professional"
+echo "   - Select region: us-central1"
+echo "   - Set size: 4GB RAM, 160GB Storage"
+echo "   - Set password: your_secure_password"
+echo ""
+echo "4. After creation, note down:"
+echo "   - Connection URI (bolt://xxx.databases.neo4j.io:7687)"
+echo "   - Username (neo4j)"
+echo "   - Password"
+echo "   - Database name (neo4j)"
+echo ""
+echo "5. Configure IP whitelist for Google Cloud Run"
+echo "   - Add 0.0.0.0/0 (for Cloud Run access)"
+echo "   - Or add specific Cloud Run egress IPs"
+echo ""
+echo "6. Test connection:"
+echo "   cypher-shell -a 'bolt://xxx.databases.neo4j.io:7687' -u neo4j -p 'your_password'"
+echo ""
+echo "=== Save these values for environment variables ==="
+echo "NEO4J_URI=bolt://xxx.databases.neo4j.io:7687"
+echo "NEO4J_USER=neo4j"
+echo "NEO4J_PASSWORD=your_password"

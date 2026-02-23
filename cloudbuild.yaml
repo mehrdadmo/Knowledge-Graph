@@ -1,0 +1,59 @@
+# Cloud Build configuration for Knowledge Graph Platform
+
+steps:
+  # Build the main API image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'backend/Dockerfile.cloud', '-t', 'gcr.io/$PROJECT_ID/kg-api:$COMMIT_SHA', '.']
+  
+  # Build the compliance engine image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'backend/Dockerfile.compliance.cloud', '-t', 'gcr.io/$PROJECT_ID/kg-compliance:$COMMIT_SHA', '.']
+  
+  # Push images to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/kg-api:$COMMIT_SHA']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/kg-compliance:$COMMIT_SHA']
+  
+  # Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'kg-api'
+      - '--image=gcr.io/$PROJECT_ID/kg-api:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=1Gi'
+      - '--cpu=1'
+      - '--timeout=300'
+      - '--concurrency=1000'
+      - '--max-instances=10'
+    env:
+      - 'CLOUD_RUN_REGION=us-central1'
+  
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'kg-compliance'
+      - '--image=gcr.io/$PROJECT_ID/kg-compliance:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=1Gi'
+      - '--cpu=1'
+      - '--timeout=300'
+      - '--concurrency=1000'
+      - '--max-instances=10'
+    env:
+      - 'CLOUD_RUN_REGION=us-central1'
+
+substitutions:
+  COMMIT_SHA: '$COMMIT_SHA'
+
+images:
+  - 'gcr.io/$PROJECT_ID/kg-api:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/kg-compliance:$COMMIT_SHA'
