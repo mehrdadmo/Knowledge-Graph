@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     postgres_user: str = Field(default="postgres", description="PostgreSQL username")
     postgres_password: str = Field(default="password", description="PostgreSQL password")
     
-    # Neo4j Configuration
+    # Neo4j Configuration - Read from environment variables
     neo4j_uri: str = Field(default="bolt://localhost:7687", description="Neo4j connection URI")
     neo4j_user: str = Field(default="neo4j", description="Neo4j username")
     neo4j_password: str = Field(default="password", description="Neo4j password")
@@ -21,11 +21,19 @@ class Settings(BaseSettings):
     
     @property
     def postgres_dsn(self) -> str:
-        return f"postgresql://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        # Check if we're in Cloud Run (Unix socket)
+        if self.postgres_host.startswith("/cloudsql/"):
+            dsn = f"postgresql://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+            return dsn
+        else:
+            dsn = f"postgresql://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+            return dsn
     
     class Config:
         env_file = ".env"
         case_sensitive = False
+        # Override defaults with environment variables
+        extra = "ignore"
 
 
 settings = Settings()

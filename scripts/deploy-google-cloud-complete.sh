@@ -6,14 +6,22 @@
 set -e
 
 # Configuration
-PROJECT_ID="knowledge-graph-platform"
+PROJECT_ID="knowledge-graph-1771880019"
 REGION="us-central1"
 ZONE="us-central1-a"
 
 echo "🚀 Google Cloud Deployment for Knowledge Graph Platform"
 echo "=================================================="
 
-# Check if gcloud is installed
+# Function to handle quota limits
+wait_for_quota() {
+    echo "⏳ Waiting for quota reset..."
+    sleep 10
+}
+
+# Check if gcloud is installed and set PATH
+export PATH="/Users/mehrdadmohamadali/Desktop/Knowledge Graph/google-cloud-sdk/google-cloud-sdk/bin:$PATH"
+
 if ! command -v gcloud &> /dev/null; then
     echo "❌ Google Cloud SDK not found. Please install it first:"
     echo "   curl https://sdk.cloud.google.com | bash"
@@ -33,21 +41,31 @@ echo "✅ Google Cloud SDK found and authenticated"
 # Set project
 echo "📋 Setting project: $PROJECT_ID"
 gcloud config set project $PROJECT_ID
+wait_for_quota
 
 # Enable required APIs
 echo "🔧 Enabling required APIs..."
 gcloud services enable run.googleapis.com
+wait_for_quota
 gcloud services enable sql-component.googleapis.com
+wait_for_quota
 gcloud services enable cloudbuild.googleapis.com
+wait_for_quota
 gcloud services enable secretmanager.googleapis.com
+wait_for_quota
 gcloud services enable artifactregistry.googleapis.com
+wait_for_quota
 gcloud services enable monitoring.googleapis.com
 
 # Create service account
 echo "🔐 Creating service account..."
-gcloud iam service-accounts create kg-platform-sa \
-    --display-name="Knowledge Graph Platform Service Account" \
-    --description="Service account for Knowledge Graph Platform"
+if ! gcloud iam service-accounts describe kg-platform-sa@$PROJECT_ID.iam.gserviceaccount.com --format="value(email)" 2>/dev/null; then
+    gcloud iam service-accounts create kg-platform-sa \
+        --display-name="Knowledge Graph Platform Service Account" \
+        --description="Service account for Knowledge Graph Platform"
+else
+    echo "✅ Service account already exists"
+fi
 
 # Grant permissions
 echo "👥 Granting permissions..."
@@ -65,24 +83,39 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 # Step 1: Create Cloud SQL PostgreSQL
 echo "🗄️ Creating Cloud SQL PostgreSQL instance..."
-gcloud sql instances create knowledge-graph-db \
-    --database-version=POSTGRES_15 \
-    --tier=db-custom-4-16384 \
-    --region=$REGION \
-    --storage-size=100GB \
-    --storage-type=SSD \
-    --backup-start-time=02:00 \
-    --retained-backups-count=7 \
-    --deletion-protection
+if ! gcloud sql instances describe knowledge-graph-db --format="value(name)" 2>/dev/null; then
+    gcloud sql instances create knowledge-graph-db \
+        --database-version=POSTGRES_15 \
+        --tier=db-custom-4-16384 \
+        --region=$REGION \
+        --storage-size=100GB \
+        --storage-type=SSD \
+        --backup-start-time=02:00 \
+        --retained-backups-count=7 \
+        --deletion-protection
+else
+    echo "✅ Cloud SQL instance already exists"
+fi
 
 # Create database
 echo "📊 Creating database..."
-gcloud sql databases create logistics_kg --instance=knowledge-graph-db
+if ! gcloud sql databases describe logistics_kg --instance=knowledge-graph-db --format="value(name)" 2>/dev/null; then
+    gcloud sql databases create logistics_kg --instance=knowledge-graph-db
+else
+    echo "✅ Database already exists"
+fi
 
 # Create database user
 echo "👤 Creating database user..."
-DB_PASSWORD=$(openssl rand -base64 32)
-gcloud sql users create postgres --instance=knowledge-graph-db --password=$DB_PASSWORD
+if ! gcloud sql users describe postgres --instance=knowledge-graph-db --format="value(name)" 2>/dev/null; then
+    DB_PASSWORD=$(openssl rand -base64 32)
+    gcloud sql users create postgres --instance=knowledge-graph-db --password=$DB_PASSWORD
+else
+    echo "✅ Database user already exists"
+    # Get existing password or set a new one
+    DB_PASSWORD=$(openssl rand -base64 32)
+    gcloud sql users set-password postgres --instance=knowledge-graph-db --password=$DB_PASSWORD
+fi
 
 # Get connection name
 DB_CONNECTION_NAME=$(gcloud sql instances describe knowledge-graph-db --format="value(connectionName)")
@@ -114,10 +147,29 @@ echo "🔐 Setting up Secret Manager..."
 
 # Database secrets
 echo "  🔐 Creating database secrets..."
-echo -n $DB_PASSWORD | gcloud secrets create postgres-password --data-file=-
-echo -n $NEO4J_PASSWORD | gcloud secrets create neo4j-password --data-file=-
-echo -n $NEO4J_URI | gcloud secrets create neo4j-uri --data-file=-
-echo -n $DB_CONNECTION_NAME | gcloud secrets create postgres-connection --data-file=-
+if ! gcloud secrets describe postgres-password --format="value(name)" 2>/dev/null; then
+    echo -n $DB_PASSWORD | gcloud secrets create postgres-password --data-file=-
+else
+    echo "✅ postgres-password secret already exists"
+fi
+
+if ! gcloud secrets describe neo4j-password --format="value(name)" 2>/dev/null; then
+    echo -n $NEO4J_PASSWORD | gcloud secrets create neo4j-password --data-file=-
+else
+    echo "✅ neo4j-password secret already exists"
+fi
+
+if ! gcloud secrets describe neo4j-uri --format="value(name)" 2>/dev/null; then
+    echo -n $NEO4J_URI | gcloud secrets create neo4j-uri --data-file=-
+else
+    echo "✅ neo4j-uri secret already exists"
+fi
+
+if ! gcloud secrets describe postgres-connection --format="value(name)" 2>/dev/null; then
+    echo -n $DB_CONNECTION_NAME | gcloud secrets create postgres-connection --data-file=-
+else
+    echo "✅ postgres-connection secret already exists"
+fi
 
 # API secrets
 echo "  🔐 Creating API secrets..."
@@ -161,9 +213,13 @@ echo "🐳 Building and deploying services..."
 
 # Create Artifact Registry repository
 echo "  📦 Creating Artifact Registry repository..."
-gcloud artifacts repositories create kg-platform \
-    --repository-format=docker \
-    --location=$REGION
+if ! gcloud artifacts repositories describe kg-platform --location=$REGION --format="value(name)" 2>/dev/null; then
+    gcloud artifacts repositories create kg-platform \
+        --repository-format=docker \
+        --location=$REGION
+else
+    echo "✅ Artifact Registry repository already exists"
+fi
 
 # Build main API
 echo "  🚀 Building main API..."

@@ -146,7 +146,7 @@ async def ai_query(request: AIQueryRequest, background_tasks: BackgroundTasks):
         processing_time = (datetime.now() - start_time).total_seconds()
         
         # Log the query for analytics
-        background_tasks.add_task.log_ai_query, request.query, answer, confidence)
+        background_tasks.add_task(log_ai_query, request.query, answer, confidence)
         
         return AIQueryResponse(
             query=request.query,

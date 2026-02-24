@@ -15,7 +15,19 @@ class PostgreSQLManager:
         """Context manager for database connections"""
         conn = None
         try:
-            conn = psycopg2.connect(self.dsn)
+            # Check if using Cloud SQL Unix socket
+            if settings.postgres_host.startswith("/cloudsql/"):
+                # For Cloud SQL Unix socket, we need to connect differently
+                conn = psycopg2.connect(
+                    host=settings.postgres_host,
+                    port=settings.postgres_port,
+                    database=settings.postgres_db,
+                    user=settings.postgres_user,
+                    password=settings.postgres_password
+                )
+            else:
+                # Regular TCP connection
+                conn = psycopg2.connect(self.dsn)
             yield conn
         except Exception as e:
             if conn:
