@@ -52,6 +52,130 @@ async def root():
     }
 
 
+@app.get("/test-db")
+async def test_database():
+    """Test database connection and check tables"""
+    try:
+        db_manager = PostgreSQLManager()
+        
+        with db_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Check if tables exist
+            cursor.execute("""
+                SELECT table_name FROM information_schema.tables 
+                WHERE table_schema = 'public'
+                ORDER BY table_name
+            """)
+            tables = [row[0] for row in cursor.fetchall()]
+            
+            # Check if there's any data
+            result = {}
+            for table in tables:
+                cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                result[table] = cursor.fetchone()[0]
+            
+            return {
+                "tables": tables,
+                "counts": result,
+                "connection": "successful"
+            }
+            
+    except Exception as e:
+        logger.error(f"Database test failed: {e}")
+        return {
+            "connection": "failed",
+            "error": str(e)
+        }
+
+@app.post("/init-db")
+async def initialize_database():
+    """Initialize database schema"""
+    try:
+        db_manager = PostgreSQLManager()
+        
+        # Create tables manually
+        create_statements = [
+            """
+            CREATE TABLE IF NOT EXISTS customers (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS documents (
+                id SERIAL PRIMARY KEY,
+                customer_id INTEGER NOT NULL REFERENCES customers(id),
+                document_type VARCHAR(100) NOT NULL,
+                document_number VARCHAR(255),
+                file_path VARCHAR(500),
+                processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS field_definitions (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                description TEXT,
+                field_type VARCHAR(50) NOT NULL,
+                target_graph_label VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS document_fields (
+                id SERIAL PRIMARY KEY,
+                document_id INTEGER NOT NULL REFERENCES documents(id),
+                field_definition_id INTEGER NOT NULL REFERENCES field_definitions(id),
+                raw_value TEXT,
+                normalized_value TEXT,
+                hitl_value TEXT,
+                confidence_score DECIMAL(3,2),
+                hitl_finished_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(document_id, field_definition_id)
+            )
+            """
+        ]
+        
+        with db_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            for statement in create_statements:
+                cursor.execute(statement)
+            conn.commit()
+        
+        # Insert basic field definitions
+        field_defs = [
+            ('ShipperName', 'Name of the shipper', 'text', 'LegalEntity'),
+            ('ConsigneeName', 'Name of the consignee', 'text', 'LegalEntity'),
+            ('OriginPort', 'Origin port', 'text', 'Location'),
+            ('DestinationPort', 'Destination port', 'text', 'Location'),
+            ('HS_Code', 'HS Code', 'text', 'HSCode'),
+            ('Product', 'Product description', 'text', 'Product'),
+            ('Price', 'Price', 'number', 'Product'),
+            ('Quantity', 'Quantity', 'number', 'Product')
+        ]
+        
+        with db_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            for name, desc, ftype, label in field_defs:
+                cursor.execute(
+                    "INSERT INTO field_definitions (name, description, field_type, target_graph_label) VALUES (%s, %s, %s, %s) ON CONFLICT (name) DO NOTHING",
+                    (name, desc, ftype, label)
+                )
+            conn.commit()
+        
+        return {"message": "Database schema initialized successfully"}
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Database initialization failed: {str(e)}")
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
